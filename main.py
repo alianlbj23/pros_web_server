@@ -7,38 +7,72 @@ app = Flask(__name__)
 BASE_DIR    = os.path.dirname(__file__)
 SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts")
 
-# signal -> 啟動腳本
 script_mapping = {
-    "star_car":     "zlink-bus-servo-driver/car_activate.sh",
+    "star_car": [
+        "pros_app/camera_gemini.sh",
+        "pros_app/rosbridge_server.sh",
+        "zlink-bus-servo-driver/car_activate.sh"
+    ],
     "reset_system": "system/reset.sh",
     "init_camera":  "camera/init.sh",
 }
 
-# 在 star_car 被触发（启动）后，要关掉哪些容器
-# 这里直接写死两个你在 docker ps 看到的容器名
+
 container_mapping = {
     "star_car": [
         "arm_controller_node",
-        "microros_agent_usb_rear_wheel"
+        "microros_agent_usb_rear_wheel",
+        "compose-rosbridge-1",
+        "compose-dabai-1",
+        "compose-compress-1"
     ],
-    # 其他 signal 对应容器也可以按需添加
 }
 
 active_signals: set[str]      = set()
 active_containers: dict[str, list[str]] = {}
 
-def run_shell_script(rel_path: str):
-    path = os.path.join(SCRIPTS_DIR, rel_path)
-    if not os.path.isfile(path):
-        return {"status":"error","message":f"{rel_path} not found"}, 404
-    try:
-        res = subprocess.run(
-            ["bash", path],
-            check=True, capture_output=True, text=True
-        )
-        return {"status":"success","output":res.stdout.strip()}, 200
-    except subprocess.CalledProcessError as e:
-        return {"status":"error","message":str(e),"stderr":e.stderr}, 500
+def run_shell_script(rel_path_or_paths: str | list[str]):
+    if isinstance(rel_path_or_paths, str):
+        script_paths_to_execute = [rel_path_or_paths]
+        is_single_script = True
+    elif isinstance(rel_path_or_paths, list):
+        script_paths_to_execute = rel_path_or_paths
+        is_single_script = False
+        if not script_paths_to_execute:
+            return {"status": "error", "message": "Empty script list provided"}, 400
+    else:
+        return {"status": "error", "message": "Invalid script mapping format"}, 500
+
+    all_individual_outputs = []
+
+    for rel_path_item in script_paths_to_execute:
+        if not isinstance(rel_path_item, str):
+            return {"status": "error", "message": f"Invalid script path item in list: {rel_path_item}"}, 500
+        
+        path = os.path.join(SCRIPTS_DIR, rel_path_item)
+        if not os.path.isfile(path):
+            return {"status": "error", "message": f"Script '{rel_path_item}' not found"}, 404
+        
+        try:
+            res = subprocess.run(
+                ["bash", path],
+                check=True, capture_output=True, text=True
+            )
+            all_individual_outputs.append(
+                {"script": rel_path_item, "output": res.stdout.strip()}
+            )
+        except subprocess.CalledProcessError as e:
+            return {
+                "status": "error",
+                "message": f"Error in script '{rel_path_item}': {str(e)}",
+                "stderr": e.stderr.strip(),
+                "failed_script": rel_path_item
+            }, 500
+
+    if is_single_script and all_individual_outputs:
+        return {"status": "success", "output": all_individual_outputs[0]["output"]}, 200
+    else:
+        return {"status": "success", "outputs": all_individual_outputs}, 200
 
 def stop_containers(names: list[str]):
     errors = []
@@ -54,16 +88,13 @@ def stop_containers(names: list[str]):
 
 @app.route("/run-script/<signal_name>", methods=["GET"])
 def run_signal(signal_name: str):
-    # --- 停止流程 ---
     if signal_name.endswith("_stop"):
         base = signal_name[:-5]
         was_active = base in active_signals
 
-        # 如果有静态映射的容器列表，就停它们
         containers = container_mapping.get(base, [])
         if containers:
             errs = stop_containers(containers)
-            # 不论成功还是部分失败，都清理 state
             active_signals.discard(base)
             active_containers.pop(base, None)
             if errs:
@@ -80,23 +111,19 @@ def run_signal(signal_name: str):
                 "containers":  containers
             }), 200
 
-        # fallback：没容器映射就返回错误
         return jsonify({
             "status":"error",
             "message":f"No containers mapped to stop for '{base}'"
         }), 404
 
-    # --- 启动流程 ---
     if signal_name not in script_mapping:
         return jsonify({"status":"error","message":f"No script for '{signal_name}'"}), 404
     if signal_name in active_signals:
         return jsonify({"status":"error","message":f"'{signal_name}' already active"}), 409
 
-    # 执行启动脚本
     resp, code = run_shell_script(script_mapping[signal_name])
     if code == 200:
         active_signals.add(signal_name)
-        # 记录要停掉的容器列表
         active_containers[signal_name] = container_mapping.get(signal_name, [])
     return jsonify(resp), code
 
