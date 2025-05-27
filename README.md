@@ -1,4 +1,8 @@
 # pros_web_server
+## clone
+```
+git clone --recurse-submodules <repo_url>
+```
 ## Usage
 Open server
 ```shell
