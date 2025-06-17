@@ -14,3 +14,7 @@ curl http://localhost:5000/run-script/star_car
 or
 curl http://<ip>:5000/run-script/star_car
 ```
+Close service
+```
+curl http://localhost:5000/run-script/<service_name>_stop
+```
