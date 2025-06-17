@@ -86,7 +86,7 @@ def stop_containers(names: list[str]):
     errors = []
     for name in names:
         try:
-            subprocess.run(["docker", "stop", name], check=True,
+            subprocess.run(["docker", "kill", name], check=True,
                            capture_output=True, text=True)
             subprocess.run(["docker", "rm",   name], check=True,
                            capture_output=True, text=True)
