@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 import os
 import subprocess
+import threading
 
 app = Flask(__name__)
 
@@ -9,22 +10,29 @@ SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts")
 
 script_mapping = {
     "star_car": [
-        "pros_app/camera_gemini.sh",
         "pros_app/rosbridge_server.sh",
-        "zlink-bus-servo-driver/car_activate.sh"
     ],
-    "reset_system": "system/reset.sh",
-    "init_camera":  "camera/init.sh",
+    "slam_ydlidar": [
+        "pros_app/slam_ydlidar.sh",
+    ],
+    "localization_ydlidar": [
+        "pros_app/localization_ydlidar.sh",
+    ],
 }
 
 
 container_mapping = {
     "star_car": [
-        "arm_controller_node",
-        "microros_agent_usb_rear_wheel",
-        "compose-rosbridge-1",
-        "compose-dabai-1",
-        "compose-compress-1"
+        "rosbridge_server"
+    ],
+    "slam_ydlidar": [
+        "ydlidar",
+        "slam"
+    ],
+    "localization_ydlidar": [
+        "navigation",
+        "localization",
+        "ydlidar"
     ],
 }
 
@@ -48,11 +56,11 @@ def run_shell_script(rel_path_or_paths: str | list[str]):
     for rel_path_item in script_paths_to_execute:
         if not isinstance(rel_path_item, str):
             return {"status": "error", "message": f"Invalid script path item in list: {rel_path_item}"}, 500
-        
+
         path = os.path.join(SCRIPTS_DIR, rel_path_item)
         if not os.path.isfile(path):
             return {"status": "error", "message": f"Script '{rel_path_item}' not found"}, 404
-        
+
         try:
             res = subprocess.run(
                 ["bash", path],
@@ -121,11 +129,10 @@ def run_signal(signal_name: str):
     if signal_name in active_signals:
         return jsonify({"status":"error","message":f"'{signal_name}' already active"}), 409
 
-    resp, code = run_shell_script(script_mapping[signal_name])
-    if code == 200:
-        active_signals.add(signal_name)
-        active_containers[signal_name] = container_mapping.get(signal_name, [])
-    return jsonify(resp), code
+    threading.Thread(target=run_shell_script, args=(script_mapping[signal_name],)).start()
+    active_signals.add(signal_name)
+    active_containers[signal_name] = container_mapping.get(signal_name, [])
+    return jsonify({"status": "Script execution started"}), 202
 
 @app.route("/active-signals", methods=["GET"])
 def list_active():
@@ -139,4 +146,4 @@ def hello():
     return "Ready to receive signals!"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True, timeout=120)
