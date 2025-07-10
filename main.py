@@ -15,6 +15,9 @@ script_mapping = {
     "slam_ydlidar": [
         "pros_app/slam_ydlidar.sh",
     ],
+    "store_map": [
+        "pros_app/store_map.sh",
+    ],
     "localization_ydlidar": [
         "pros_app/localization_ydlidar.sh",
     ],
