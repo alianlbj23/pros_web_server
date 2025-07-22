@@ -1,0 +1,3 @@
+[submodule "scripts/zlink-bus-servo-driver"]
+	path = scripts/zlink-bus-servo-driver
+	url = https://github.com/alianlbj23/zlink-bus-servo-driver.git
