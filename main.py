@@ -15,11 +15,15 @@ script_mapping = {
     "slam_ydlidar": [
         "pros_app/slam_ydlidar.sh",
     ],
+    "slam_oradarlidar": [
+        "pros_app/slam_oradarlidar.sh",
+    ],
     "store_map": [
         "pros_app/store_map.sh",
     ],
     "localization_ydlidar": [
         "pros_app/localization_ydlidar.sh",
+        "pros_app/localization_oradarlidar.sh",
     ],
 }
 
@@ -35,6 +39,15 @@ container_mapping = {
         "navigation",
         "localization",
         "ydlidar"
+    ],
+    "slam_ydlidar": [
+        "oradarlidar",
+        "slam"
+    ],
+    "localization_oradarlidar": [
+        "navigation",
+        "localization",
+        "oradarlidar"
     ],
 }
 
