@@ -23,7 +23,6 @@ script_mapping = {
     ],
 }
 
-
 container_mapping = {
     "star_car": [
         "rosbridge_server"
@@ -39,7 +38,7 @@ container_mapping = {
     ],
 }
 
-active_signals: set[str]      = set()
+active_signals: set[str] = set()
 active_containers: dict[str, list[str]] = {}
 
 def run_shell_script(rel_path_or_paths: str | list[str]):
@@ -58,7 +57,7 @@ def run_shell_script(rel_path_or_paths: str | list[str]):
 
     for rel_path_item in script_paths_to_execute:
         if not isinstance(rel_path_item, str):
-            return {"status": "error", "message": f"Invalid script path item in list: {rel_path_item}"}, 500
+            return {"status": "error", "message": f"Invalid script path item: {rel_path_item}"}, 500
 
         path = os.path.join(SCRIPTS_DIR, rel_path_item)
         if not os.path.isfile(path):
@@ -69,13 +68,14 @@ def run_shell_script(rel_path_or_paths: str | list[str]):
                 ["bash", path],
                 check=True, capture_output=True, text=True
             )
-            all_individual_outputs.append(
-                {"script": rel_path_item, "output": res.stdout.strip()}
-            )
+            all_individual_outputs.append({
+                "script": rel_path_item,
+                "output": res.stdout.strip()
+            })
         except subprocess.CalledProcessError as e:
             return {
                 "status": "error",
-                "message": f"Error in script '{rel_path_item}': {str(e)}",
+                "message": f"Error in script '{rel_path_item}': {e}",
                 "stderr": e.stderr.strip(),
                 "failed_script": rel_path_item
             }, 500
@@ -85,7 +85,7 @@ def run_shell_script(rel_path_or_paths: str | list[str]):
     else:
         return {"status": "success", "outputs": all_individual_outputs}, 200
 
-def stop_containers(names: list[str]):
+def stop_containers(names: list[str]) -> list[str]:
     errors = []
     for name in names:
         try:
@@ -97,12 +97,26 @@ def stop_containers(names: list[str]):
             errors.append(f"{name}: {e.stderr or e}")
     return errors
 
+def are_containers_running(names: list[str]) -> bool:
+    """
+    回傳 True 如果 names 裡有至少一個 container 正在運行中。
+    """
+    try:
+        res = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            check=True, capture_output=True, text=True
+        )
+        running = set(res.stdout.splitlines())
+        return any(name in running for name in names)
+    except subprocess.CalledProcessError:
+        return False
+
 @app.route("/run-script/<signal_name>", methods=["GET"])
 def run_signal(signal_name: str):
+    # 處理 stop 指令
     if signal_name.endswith("_stop"):
         base = signal_name[:-5]
         was_active = base in active_signals
-
         containers = container_mapping.get(base, [])
         if containers:
             errs = stop_containers(containers)
@@ -110,43 +124,68 @@ def run_signal(signal_name: str):
             active_containers.pop(base, None)
             if errs:
                 return jsonify({
-                    "status":"error",
-                    "message":"Failed to stop some containers",
+                    "status": "error",
+                    "message": "Failed to stop some containers",
                     "errors": errs
                 }), 500
             return jsonify({
-                "status":      "success",
-                "action":      "stopped_containers",
-                "signal":      base,
-                "was_active":  was_active,
-                "containers":  containers
+                "status":     "success",
+                "action":     "stopped_containers",
+                "signal":     base,
+                "was_active": was_active,
+                "containers": containers
             }), 200
-
         return jsonify({
-            "status":"error",
-            "message":f"No containers mapped to stop for '{base}'"
+            "status":  "error",
+            "message": f"No containers mapped to stop for '{base}'"
         }), 404
 
+    # 確認有對應 script
     if signal_name not in script_mapping:
-        return jsonify({"status":"error","message":f"No script for '{signal_name}'"}), 404
-    if signal_name in active_signals:
-        return jsonify({"status":"error","message":f"'{signal_name}' already active"}), 409
+        return jsonify({
+            "status":  "error",
+            "message": f"No script for '{signal_name}'"
+        }), 404
 
-    threading.Thread(target=run_shell_script, args=(script_mapping[signal_name],)).start()
+    containers = container_mapping.get(signal_name, [])
+
+    # 檢查是否已經有 container 在跑
+    if containers and are_containers_running(containers):
+        return jsonify({
+            "status":     "error",
+            "message":    f"Containers for '{signal_name}' already running",
+            "containers": containers
+        }), 409
+
+    # 檢查 signal 是否已 activate
+    if signal_name in active_signals:
+        return jsonify({
+            "status":  "error",
+            "message": f"'{signal_name}' already active"
+        }), 409
+
+    # 啟動腳本
+    threading.Thread(
+        target=run_shell_script,
+        args=(script_mapping[signal_name],)
+    ).start()
+
     active_signals.add(signal_name)
-    active_containers[signal_name] = container_mapping.get(signal_name, [])
+    active_containers[signal_name] = containers
+
     return jsonify({"status": "Script execution started"}), 202
 
 @app.route("/active-signals", methods=["GET"])
 def list_active():
     return jsonify({
-        "active_signals":  sorted(active_signals),
-        "containers":      active_containers
+        "active_signals": sorted(active_signals),
+        "containers":     active_containers
     }), 200
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def hello():
     return "Ready to receive signals!"
 
 if __name__ == "__main__":
+    # Flask 內建 server for debugging; 生產環境用 Gunicorn 啟動
     app.run(host="0.0.0.0", port=5000, debug=True, timeout=120)
