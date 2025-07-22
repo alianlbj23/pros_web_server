@@ -1,1 +1,1 @@
-gunicorn --workers 4 --bind 0.0.0.0:5000 main:app
+gunicorn --workers 4 --bind 0.0.0.0:6000 main:app

@@ -1,6 +1,7 @@
 services:
   lidar_pkg:
     image: registry.screamtrumpet.csie.ncku.edu.tw/alianlbj23/pros_lidar_pkg_image:latest
+    container_name: lidar_filter
     env_file:
       - .env
     networks:
