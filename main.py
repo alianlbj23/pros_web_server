@@ -157,6 +157,41 @@ def receive_wheel_speed(speed_str: str):
         )
 
 
+@app.route("/robot_arm/<joint_str>", methods=["GET"])
+def receive_robot_arm_command(joint_str: str):
+    try:
+        # 將 joint 角度字串轉為 list，例如 "90_45_30_0_180_90" -> [90, 45, 30, 0, 180, 90]
+        joint_angles = list(map(int, joint_str.strip().split("_")))
+
+        # 假設機械手臂是 6 軸的話檢查長度
+        if len(joint_angles) != 6:
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Expected 6 joint values, got {len(joint_angles)}",
+                    }
+                ),
+                400,
+            )
+
+        # ✅ 顯示訊號（或你也可以在這裡 publish 到 ROS 或執行控制）
+        print(f"[INFO] Received robot_arm command: {joint_angles}")
+
+        return jsonify({"status": "success", "robot_arm_joints": joint_angles}), 200
+
+    except ValueError:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Invalid format. Use integers separated by underscores (e.g., 90_45_30_0_180_90)",
+                }
+            ),
+            400,
+        )
+
+
 @app.route("/run-script/<signal_name>", methods=["GET"])
 def run_signal(signal_name: str):
     # 處理 stop 指令
