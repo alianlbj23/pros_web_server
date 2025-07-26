@@ -42,7 +42,7 @@ ros2 run yolo_pkg yolo_detection_node
 
 
 # Docker run (非互動模式、可 systemd 啟動)
-docker run -it --rm \
+docker run -d --rm \
   --name yolo_node \
   $NETWORK_OPTS \
   $PORT_MAPPING \
