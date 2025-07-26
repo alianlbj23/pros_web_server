@@ -27,6 +27,9 @@ script_mapping = {
     "localization_oradarlidar": [
         "pros_app/localization_oradarlidar.sh",
     ],
+    "camera": [
+        "pros_app/camera_gemini.sh",
+    ],
 }
 
 container_mapping = {
@@ -35,6 +38,7 @@ container_mapping = {
     "localization_ydlidar": ["navigation", "localization", "ydlidar"],
     "slam_oradarlidar": ["oradarlidar", "lidar_filter", "slam"],
     "localization_oradarlidar": ["localization", "lidar_filter", "oradarlidar"],
+    "camera": ["camera_gemini", "camera_gemini_compress"],
 }
 
 active_signals: set[str] = set()
