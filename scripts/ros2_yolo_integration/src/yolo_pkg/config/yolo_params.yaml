@@ -1,0 +1,7 @@
+yolo:
+  conf: 0.6
+  obb_model: "yolo11m.pt"
+  seg_model: "yolo11n-seg.pt"
+
+image:
+  use_compressed: false
