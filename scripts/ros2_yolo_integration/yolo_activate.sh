@@ -34,14 +34,15 @@ CMD='
 source /opt/ros/humble/setup.bash &&
 cd /workspace &&
 colcon build --symlink-install &&
-source install/setup.bash &&
-export PYTHONPATH=/root/workspace/install/cv_bridge/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages:$PYTHONPATH &&
+source /workspace/install/local_setup.bash &&
+export PYTHONPATH=/workspace/install/cv_bridge/local/lib/python3.10/dist-packages:$PYTHONPATH &&
 ros2 run yolo_pkg yolo_detection_node
 '
 
 
+
 # Docker run (非互動模式、可 systemd 啟動)
-docker run --rm \
+docker run -it --rm \
   --name yolo_node \
   $NETWORK_OPTS \
   $PORT_MAPPING \
@@ -50,4 +51,4 @@ docker run --rm \
   -v "$SRC_MOUNT" \
   "${SCREENSHOT_MOUNTS[@]}" \
   registry.screamtrumpet.csie.ncku.edu.tw/screamlab/ros2_yolo_opencv_image:latest \
-  bash -c "$CMD"
+  bash -ic "$CMD"
