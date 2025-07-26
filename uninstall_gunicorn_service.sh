@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SERVICE_NAME="gunicorn_web_server"
-WORK_DIR="/home/nckucsie/workspace/pros_web_server"
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="$WORK_DIR/venv"
 SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
