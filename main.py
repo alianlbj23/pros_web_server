@@ -31,6 +31,9 @@ script_mapping = {
     "camera": [
         "pros_app/camera_gemini.sh",
     ],
+    "yolo": [
+        "ros2_yolo_integration/yolo_activate.sh"
+    ]
 }
 
 container_mapping = {
@@ -40,6 +43,7 @@ container_mapping = {
     "slam_oradarlidar": ["oradarlidar", "lidar_filter", "slam"],
     "localization_oradarlidar": ["localization", "lidar_filter", "oradarlidar"],
     "camera": ["camera_gemini", "camera_gemini_compress"],
+    "yolo": ["yolo_node"],
 }
 
 active_signals: set[str] = set()
