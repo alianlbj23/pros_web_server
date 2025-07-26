@@ -29,17 +29,20 @@ SCREENSHOT_MOUNTS=(
   "-v" "${SCRIPT_DIR}/fps_screenshots:/workspace/fps_screenshots"
 )
 
-CMD="
-  . /opt/ros/humble/setup.bash && \
-  cd /workspace && \
-  colcon build --symlink-install && \
-  . install/setup.bash && \
-  ros2 run yolo_pkg yolo_detection_node && \
-  exec bash
-"
+# Final CMD to execute inside container
+CMD='
+source /opt/ros/humble/setup.bash &&
+cd /workspace &&
+colcon build --symlink-install &&
+source install/setup.bash &&
+export PYTHONPATH=/root/workspace/install/cv_bridge/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages:$PYTHONPATH &&
+ros2 run yolo_pkg yolo_detection_node
+'
 
-# 最终执行
-docker run -it --name yolo_node --rm \
+
+# Docker run (非互動模式、可 systemd 啟動)
+docker run --rm \
+  --name yolo_node \
   $NETWORK_OPTS \
   $PORT_MAPPING \
   --runtime=nvidia \
@@ -47,4 +50,4 @@ docker run -it --name yolo_node --rm \
   -v "$SRC_MOUNT" \
   "${SCREENSHOT_MOUNTS[@]}" \
   registry.screamtrumpet.csie.ncku.edu.tw/screamlab/ros2_yolo_opencv_image:latest \
-  bash -ic "$CMD"
+  bash -c "$CMD"
