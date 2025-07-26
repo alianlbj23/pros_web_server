@@ -29,12 +29,6 @@ SCREENSHOT_MOUNTS=(
   "-v" "${SCRIPT_DIR}/fps_screenshots:/workspace/fps_screenshots"
 )
 
-# In‑container command sequence:
-# 1) source ROS2 系统环境
-# 2) cd /workspace
-# 3) colcon build --symlink-install
-# 4) source workspace overlay
-# 5) 用 ros2 launch 运行你的 launch 文件
 CMD="
   . /opt/ros/humble/setup.bash && \
   cd /workspace && \
@@ -45,7 +39,7 @@ CMD="
 "
 
 # 最终执行
-docker run -it --rm \
+docker run -it --name yolo_node --rm \
   $NETWORK_OPTS \
   $PORT_MAPPING \
   --runtime=nvidia \
