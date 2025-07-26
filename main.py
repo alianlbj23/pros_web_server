@@ -57,10 +57,7 @@ def run_shell_script(rel_path_or_paths: str | list[str]):
 
     for rel_path_item in script_paths_to_execute:
         if not isinstance(rel_path_item, str):
-            return {
-                "status": "error",
-                "message": f"Invalid script path item: {rel_path_item}",
-            }, 500
+            return {"status": "error", "message": f"Invalid script path item: {rel_path_item}"}, 500
 
         path = os.path.join(SCRIPTS_DIR, rel_path_item)
         if not os.path.isfile(path):
@@ -230,44 +227,55 @@ def run_signal(signal_name: str):
             jsonify(
                 {
                     "status": "error",
-                    "message": f"No containers mapped to stop for '{base}'",
-                }
-            ),
-            404,
-        )
+                    "message": "Failed to stop some containers",
+                    "errors": errs
+                }), 500
+            return jsonify({
+                "status":     "success",
+                "action":     "stopped_containers",
+                "signal":     base,
+                "was_active": was_active,
+                "containers": containers
+            }), 200
+        return jsonify({
+            "status":  "error",
+            "message": f"No containers mapped to stop for '{base}'"
+        }), 404
 
-    # 確認有對應 script
+    # 處理 store_map 腳本的情況
+    if signal_name == "store_map":
+        # 無視目前狀態，直接啟動 store_map 腳本
+        threading.Thread(target=run_shell_script, args=(script_mapping["store_map"],)).start()
+        return jsonify({"status": "Store map execution started."}), 202
+
+    # 確認有對應的 script
     if signal_name not in script_mapping:
-        return (
-            jsonify({"status": "error", "message": f"No script for '{signal_name}'"}),
-            404,
-        )
+        return jsonify({
+            "status":  "error",
+            "message": f"No script for '{signal_name}'"
+        }), 404
 
     containers = container_mapping.get(signal_name, [])
 
     # 檢查是否已經有 container 在跑
     if containers and are_containers_running(containers):
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"Containers for '{signal_name}' already running",
-                    "containers": containers,
-                }
-            ),
-            409,
-        )
+        return jsonify({
+            "status":     "error",
+            "message":    f"Containers for '{signal_name}' already running",
+            "containers": containers
+        }), 409
 
     # 檢查 signal 是否已 activate
     if signal_name in active_signals:
-        return (
-            jsonify({"status": "error", "message": f"'{signal_name}' already active"}),
-            409,
-        )
+        return jsonify({
+            "status":  "error",
+            "message": f"'{signal_name}' already active"
+        }), 409
 
     # 啟動腳本
     threading.Thread(
-        target=run_shell_script, args=(script_mapping[signal_name],)
+        target=run_shell_script,
+        args=(script_mapping[signal_name],)
     ).start()
 
     active_signals.add(signal_name)
