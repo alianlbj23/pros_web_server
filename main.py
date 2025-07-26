@@ -10,7 +10,8 @@ SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts")
 
 script_mapping = {
     "star_car": [
-        "pros_app/rosbridge_server.sh",
+        "zlink-bus-servo-driver/car_activate.sh",
+        "pros_app/rosbridge_server.sh"
     ],
     "slam_ydlidar": [
         "pros_app/slam_ydlidar.sh",
@@ -33,7 +34,7 @@ script_mapping = {
 }
 
 container_mapping = {
-    "star_car": ["rosbridge_server"],
+    "star_car": ["rosbridge_server", "arm_controller_node", "microros_agent_usb_rear_wheel"],
     "slam_ydlidar": ["ydlidar", "slam"],
     "localization_ydlidar": ["navigation", "localization", "ydlidar"],
     "slam_oradarlidar": ["oradarlidar", "lidar_filter", "slam"],
@@ -46,52 +47,30 @@ active_containers: dict[str, list[str]] = {}
 
 
 def run_shell_script(rel_path_or_paths: str | list[str]):
+    # 統一 normalize 成 list
     if isinstance(rel_path_or_paths, str):
-        script_paths_to_execute = [rel_path_or_paths]
-        is_single_script = True
+        scripts = [rel_path_or_paths]
     elif isinstance(rel_path_or_paths, list):
-        script_paths_to_execute = rel_path_or_paths
-        is_single_script = False
-        if not script_paths_to_execute:
-            return {"status": "error", "message": "Empty script list provided"}, 400
+        scripts = rel_path_or_paths
     else:
         return {"status": "error", "message": "Invalid script mapping format"}, 500
 
-    all_individual_outputs = []
-
-    for rel_path_item in script_paths_to_execute:
-        if not isinstance(rel_path_item, str):
-            return {
-                "status": "error",
-                "message": f"Invalid script path item: {rel_path_item}",
-            }, 500
-
-        path = os.path.join(SCRIPTS_DIR, rel_path_item)
+    launched = []
+    for rel in scripts:
+        path = os.path.join(SCRIPTS_DIR, rel)
         if not os.path.isfile(path):
-            return {
-                "status": "error",
-                "message": f"Script '{rel_path_item}' not found",
-            }, 404
+            return {"status": "error", "message": f"Script '{rel}' not found"}, 404
 
-        try:
-            res = subprocess.run(
-                ["bash", path], check=True, capture_output=True, text=True
-            )
-            all_individual_outputs.append(
-                {"script": rel_path_item, "output": res.stdout.strip()}
-            )
-        except subprocess.CalledProcessError as e:
-            return {
-                "status": "error",
-                "message": f"Error in script '{rel_path_item}': {e}",
-                "stderr": e.stderr.strip(),
-                "failed_script": rel_path_item,
-            }, 500
+        # 以 Popen 背景啟動，不會等它結束
+        proc = subprocess.Popen(
+            ["bash", path],
+            stdout=subprocess.DEVNULL,  # 如果你想要 log，可以改成 PIPE 並稍後讀取
+            stderr=subprocess.DEVNULL,
+        )
+        launched.append({"script": rel, "pid": proc.pid})
 
-    if is_single_script and all_individual_outputs:
-        return {"status": "success", "output": all_individual_outputs[0]["output"]}, 200
-    else:
-        return {"status": "success", "outputs": all_individual_outputs}, 200
+    return {"status": "success", "launched": launched}, 200
+
 
 
 def stop_containers(names: list[str]) -> list[str]:
