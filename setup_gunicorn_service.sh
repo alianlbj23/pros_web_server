@@ -2,7 +2,7 @@
 
 # === 基本參數 ===
 USER_NAME="$(whoami)"
-WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_NAME="gunicorn_web_server"
 VENV_DIR="$WORK_DIR/venv"
 PYTHON_BIN="$VENV_DIR/bin/python3"
