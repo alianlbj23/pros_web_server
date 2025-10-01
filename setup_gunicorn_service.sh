@@ -9,6 +9,10 @@ PYTHON_BIN="$VENV_DIR/bin/python3"
 GUNICORN_BIN="$VENV_DIR/bin/gunicorn"
 REQUIREMENTS_FILE="$WORK_DIR/requirements.txt"
 
+echo "🔧 [0/5] 安裝必要套件 pip3 與 python3.10-venv..."
+sudo apt update
+sudo apt install -y python3-pip python3.10-venv
+
 echo "🔧 [1/5] 建立虛擬環境..."
 python3 -m venv "$VENV_DIR"
 
